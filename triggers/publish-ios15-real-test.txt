@@ -1,0 +1,5 @@
+trigger=2026-09-01T23:26:00-05:00
+source_run=33590728746
+source_artifact=ByeTunes-REAL-iOS15-33590728746
+asset=ByeTunes-REAL-iOS15-unsigned.ipa
+purpose=bridge exact green real app to iPhone install workflow
