@@ -1,0 +1,78 @@
+name: Publish REAL ByeTunes iOS15 Test Asset
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [temp/ios15-8-8-real-app]
+    paths:
+      - '.github/workflows/publish-ios15-real-test.yml'
+      - 'triggers/publish-ios15-real-test.txt'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ios15-real-test
+      SOURCE_RUN: '33590728746'
+      SOURCE_ARTIFACT: ByeTunes-REAL-iOS15-33590728746
+    steps:
+      - name: Download exact green real-app artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.SOURCE_ARTIFACT }}
+          run-id: ${{ env.SOURCE_RUN }}
+          github-token: ${{ github.token }}
+          path: /tmp/real
+
+      - name: Validate exact original ByeTunes IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          IPA="$(find /tmp/real -type f -name 'ByeTunes-REAL-iOS15-unsigned.ipa' | head -n1)"
+          test -n "$IPA"
+          cp "$IPA" /tmp/ByeTunes-REAL-iOS15-unsigned.ipa
+          unzip -q /tmp/ByeTunes-REAL-iOS15-unsigned.ipa -d /tmp/ipa
+          APP="$(find /tmp/ipa/Payload -maxdepth 1 -type d -name '*.app' | head -n1)"
+          test -d "$APP"
+          python3 - <<'PY'
+          import plistlib, glob
+          p=glob.glob('/tmp/ipa/Payload/*.app/Info.plist')[0]
+          d=plistlib.load(open(p,'rb'))
+          print('bundle=',d.get('CFBundleIdentifier'))
+          print('display=',d.get('CFBundleDisplayName'))
+          assert d.get('CFBundleIdentifier')=='com.EduAlexxis.MusicManager'
+          assert d.get('CFBundleDisplayName')=='ByeTunes'
+          PY
+          sha256sum /tmp/ByeTunes-REAL-iOS15-unsigned.ipa | tee /tmp/ByeTunes-REAL-iOS15-unsigned.ipa.sha256
+
+      - name: Publish replaceable prerelease asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" /tmp/ByeTunes-REAL-iOS15-unsigned.ipa /tmp/ByeTunes-REAL-iOS15-unsigned.ipa.sha256 --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" /tmp/ByeTunes-REAL-iOS15-unsigned.ipa /tmp/ByeTunes-REAL-iOS15-unsigned.ipa.sha256 \
+              --repo "$GITHUB_REPOSITORY" \
+              --target temp/ios15-8-8-real-app \
+              --title 'ByeTunes REAL iOS 15.8.8 compatibility test' \
+              --notes 'Exact NightVibes33/ByeTunes MusicManager app, compatibility-built for iOS 15.8.8 from green run 33590728746. Test asset; not a reconstructed frontend.' \
+              --prerelease
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,assets | tee /tmp/release.json
+          grep -q 'ByeTunes-REAL-iOS15-unsigned.ipa' /tmp/release.json
+
+      - name: Upload publish proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: ByeTunes-real-publish-${{ github.run_id }}
+          path: |
+            /tmp/ByeTunes-REAL-iOS15-unsigned.ipa.sha256
+            /tmp/release.json
+          retention-days: 14
