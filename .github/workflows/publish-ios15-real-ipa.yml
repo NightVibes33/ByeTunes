@@ -27,9 +27,12 @@ jobs:
       - name: Validate exact real IPA
         run: |
           set -euo pipefail
-          IPA=/tmp/byetunes/ByeTunes-REAL-iOS15-unsigned.ipa
+          IPA="$(find /tmp/byetunes -type f -name 'ByeTunes-REAL-iOS15-unsigned.ipa' -print -quit)"
+          test -n "$IPA"
           test -f "$IPA"
-          echo 'ebe4d3e65b0783b2cb728e7dc5d0772ebfe11aaefd1e9fa2d0afb3199a918623  /tmp/byetunes/ByeTunes-REAL-iOS15-unsigned.ipa' | sha256sum -c -
+          ACTUAL="$(sha256sum "$IPA" | cut -d' ' -f1)"
+          echo "actual_ipa_sha256=$ACTUAL"
+          test "$ACTUAL" = ebe4d3e65b0783b2cb728e7dc5d0772ebfe11aaefd1e9fa2d0afb3199a918623
           unzip -p "$IPA" Payload/*.app/Info.plist >/tmp/Info.plist
           python3 - <<'PY'
           import plistlib
@@ -38,6 +41,7 @@ jobs:
           assert p.get('CFBundleDisplayName')=='ByeTunes' or p.get('CFBundleName')=='ByeTunes'
           print('REAL_BYETUNES_IPA_VALID')
           PY
+          cp "$IPA" /tmp/ByeTunes-REAL-iOS15-unsigned.ipa
 
       - name: Publish temporary prerelease asset
         env:
@@ -46,7 +50,7 @@ jobs:
           set -euo pipefail
           TAG=ios15-real-33590728746
           gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --cleanup-tag -y >/dev/null 2>&1 || true
-          gh release create "$TAG" /tmp/byetunes/ByeTunes-REAL-iOS15-unsigned.ipa \
+          gh release create "$TAG" /tmp/ByeTunes-REAL-iOS15-unsigned.ipa \
             --repo "$GITHUB_REPOSITORY" \
             --title 'ByeTunes Real iOS 15.8.8 Test Build' \
             --notes 'Original NightVibes33/ByeTunes app, compatibility-built for the iPhone8,1 iOS 15.8.8 live test. Unsigned jailbreak test build.' \
