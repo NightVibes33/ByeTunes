@@ -1,4 +1,5 @@
-trigger=2026-09-01T23:18:00-05:00
+trigger=2026-09-01T23:24:00-05:00
 target=iPhone8,1 iOS 15.8.8
 source=NightVibes33/ByeTunes exact MusicManager app
-mode=build original UI and features with iOS 15 target and real idevice dependency
+mode=build original UI/features with deterministic iOS15 compatibility patch + real idevice dependency
+attempt=2
