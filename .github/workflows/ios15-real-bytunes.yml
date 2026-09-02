@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/ios15-real-bytunes.yml'
       - 'triggers/ios15-real-bytunes.txt'
+      - 'scripts/patch_ios15_compat.py'
       - 'MusicManager/**'
       - 'MusicManager.xcodeproj/**'
 
@@ -31,6 +32,14 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Apply real-app iOS 15 compatibility patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_ios15_compat.py
+          git diff -- MusicManager | tee "$RUNNER_TEMP/ios15-source.patch"
+          test -s "$RUNNER_TEMP/ios15-source.patch"
 
       - name: Install Rust iOS target
         uses: dtolnay/rust-toolchain@stable
@@ -94,8 +103,8 @@ jobs:
           test "$NAME" = 'ByeTunes'
           otool -l "$APP/MusicManager" | tee "$RUNNER_TEMP/otool.txt"
           python3 - <<'PY'
-          import re
-          s=open(__import__('os').environ['RUNNER_TEMP']+'/otool.txt').read()
+          import re, os
+          s=open(os.environ['RUNNER_TEMP']+'/otool.txt').read()
           vals=re.findall(r'\bminos\s+([0-9.]+)', s)
           print('minos_values=', vals)
           if not vals or any(tuple(map(int,v.split('.'))) > (15,0) for v in vals):
@@ -119,5 +128,6 @@ jobs:
             out/sha256.txt
             ${{ runner.temp }}/xcodebuild.log
             ${{ runner.temp }}/otool.txt
+            ${{ runner.temp }}/ios15-source.patch
           if-no-files-found: ignore
           retention-days: 14
