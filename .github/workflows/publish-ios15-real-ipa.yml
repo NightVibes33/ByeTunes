@@ -1,0 +1,54 @@
+name: Publish Real ByeTunes iOS15 IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [temp/ios15-8-8-real-app]
+    paths:
+      - '.github/workflows/publish-ios15-real-ipa.yml'
+      - 'triggers/publish-ios15-real-ipa.txt'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download authoritative real ByeTunes artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ByeTunes-REAL-iOS15-33590728746
+          run-id: 33590728746
+          github-token: ${{ github.token }}
+          path: /tmp/byetunes
+
+      - name: Validate exact real IPA
+        run: |
+          set -euo pipefail
+          IPA=/tmp/byetunes/ByeTunes-REAL-iOS15-unsigned.ipa
+          test -f "$IPA"
+          echo 'ebe4d3e65b0783b2cb728e7dc5d0772ebfe11aaefd1e9fa2d0afb3199a918623  /tmp/byetunes/ByeTunes-REAL-iOS15-unsigned.ipa' | sha256sum -c -
+          unzip -p "$IPA" Payload/*.app/Info.plist >/tmp/Info.plist
+          python3 - <<'PY'
+          import plistlib
+          p=plistlib.load(open('/tmp/Info.plist','rb'))
+          assert p['CFBundleIdentifier']=='com.EduAlexxis.MusicManager', p.get('CFBundleIdentifier')
+          assert p.get('CFBundleDisplayName')=='ByeTunes' or p.get('CFBundleName')=='ByeTunes'
+          print('REAL_BYETUNES_IPA_VALID')
+          PY
+
+      - name: Publish temporary prerelease asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG=ios15-real-33590728746
+          gh release delete "$TAG" --repo "$GITHUB_REPOSITORY" --cleanup-tag -y >/dev/null 2>&1 || true
+          gh release create "$TAG" /tmp/byetunes/ByeTunes-REAL-iOS15-unsigned.ipa \
+            --repo "$GITHUB_REPOSITORY" \
+            --title 'ByeTunes Real iOS 15.8.8 Test Build' \
+            --notes 'Original NightVibes33/ByeTunes app, compatibility-built for the iPhone8,1 iOS 15.8.8 live test. Unsigned jailbreak test build.' \
+            --prerelease
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,assets,url
