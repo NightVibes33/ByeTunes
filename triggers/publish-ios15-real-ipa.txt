@@ -1,0 +1,4 @@
+trigger=2026-09-01T23:16:00-05:00
+source_run=33590728746
+ipa_sha256=ebe4d3e65b0783b2cb728e7dc5d0772ebfe11aaefd1e9fa2d0afb3199a918623
+bundle=com.EduAlexxis.MusicManager
